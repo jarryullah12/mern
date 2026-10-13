@@ -111,6 +111,23 @@ connection is cached between invocations in `backend/config/db.js`.
 4. Deploy. Your API is then live at `https://<your-app>.vercel.app/api/...`
    (e.g. `/api/health`, `/api/movies`).
 
+### Using two separate Vercel projects (frontend + API)
+
+You can also deploy the API and the frontend as **two** Vercel projects, e.g.
+API at `https://your-api.vercel.app` and frontend at `https://your-app.vercel.app`.
+Two things matter here:
+
+1. **Frontend** → set the build-time env var
+   `REACT_APP_API_URL=https://your-api.vercel.app/api` — the `/api` suffix is
+   required — then **redeploy** (the value is baked in at build time).
+2. **Backend** → set `CORS_ORIGIN=https://your-app.vercel.app` so the browser is
+   allowed to call the API from the other domain (otherwise you get a CORS
+   error). Use a comma-separated list for several origins, or `*` to allow all
+   while testing.
+
+On the API domain, opening the root (`/`) shows `Cannot GET /` — that is normal;
+the API lives under `/api/...` (try `/api/health`).
+
 ### Seeding the database
 
 Serverless functions can't run one-off scripts, so run the seed **from your

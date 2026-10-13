@@ -1,8 +1,17 @@
 // Central API client for the movie-theater backend.
-// Base URL comes from REACT_APP_API_URL (see .env), falling back to
-// the local backend on port 4000.
+//
+// Base URL resolution:
+//   - locally: REACT_APP_API_URL from .env (default http://localhost:4000/api)
+//   - in production without the var set: same-domain "/api"
+//
+// The value is normalised so that both "https://host" and "https://host/api"
+// work — if the trailing "/api" is missing it is added automatically.
+const rawBase = (
+  process.env.REACT_APP_API_URL ||
+  (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:4000/api')
+).replace(/\/+$/, '');
 
-export const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+export const API_URL = /\/api$/.test(rawBase) ? rawBase : `${rawBase}/api`;
 
 // ---- token helpers -------------------------------------------------
 export const getToken = () => localStorage.getItem('token');
