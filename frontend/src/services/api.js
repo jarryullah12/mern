@@ -6,12 +6,35 @@
 //
 // The value is normalised so that both "https://host" and "https://host/api"
 // work — if the trailing "/api" is missing it is added automatically.
-const rawBase = (
-  process.env.REACT_APP_API_URL ||
+// Accept REACT_APP_API_URL; as a safety net, also accept other REACT_APP_*URL
+// names case-insensitively (e.g. React_App_Admin_Url, REACT_APP_BACKEND_URL).
+function readApiBase() {
+  const env = process.env;
+  if (env.REACT_APP_API_URL) return env.REACT_APP_API_URL;
+  const key = Object.keys(env).find(
+    (k) => /^REACT_APP_(API|ADMIN|BACKEND|SERVER)_?URL$/i.test(k) && env[k]
+  );
+  return key ? env[key] : '';
+}
+
+let rawBase = (
+  readApiBase() ||
   (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:4000/api')
-).replace(/\/+$/, '');
+)
+  .trim()
+  .replace(/\/+$/, '');
+
+// If the value is a bare host (e.g. "my-api.vercel.app") with no scheme, add
+// https:// so the browser doesn't treat it as a relative path.
+if (rawBase && !/^https?:\/\//i.test(rawBase) && !rawBase.startsWith('/')) {
+  rawBase = `https://${rawBase}`;
+}
 
 export const API_URL = /\/api$/.test(rawBase) ? rawBase : `${rawBase}/api`;
+
+// Handy when debugging a deployment: shows the resolved API base in the console.
+// eslint-disable-next-line no-console
+console.info('[api] base URL:', API_URL);
 
 // ---- token helpers -------------------------------------------------
 export const getToken = () => localStorage.getItem('token');
@@ -35,9 +58,10 @@ async function request(path, { method = 'GET', body, auth } = {}) {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
+  const raw = await response.text();
   let data = null;
   try {
-    data = await response.json();
+    data = raw ? JSON.parse(raw) : null;
   } catch (_) {
     data = null;
   }
@@ -45,6 +69,14 @@ async function request(path, { method = 'GET', body, auth } = {}) {
   if (!response.ok) {
     const message = (data && data.message) || `Request failed (${response.status})`;
     throw new Error(message);
+  }
+
+  // A successful request that isn't JSON almost always means the base URL
+  // points at the static site (which returns index.html) instead of the API.
+  if (raw && data === null) {
+    throw new Error(
+      `The API at ${API_URL} did not return JSON. Check REACT_APP_API_URL - it should point to your backend, e.g. https://<your-backend>.vercel.app/api`
+    );
   }
 
   return data;

@@ -131,12 +131,21 @@ the API lives under `/api/...` (try `/api/health`).
 ### Seeding the database
 
 Serverless functions can't run one-off scripts, so run the seed **from your
-machine** against the same database:
+machine** against the same database the backend uses on Vercel.
+
+macOS / Linux:
 
 ```bash
 cd backend
 MONGODB_URI="<same connection string>" node seed.js
 ```
+
+Windows: put `MONGODB_URI=...` in `backend\.env`, then double-click
+`backend\seed-database.bat` (or run `npm run seed`).
+
+After seeding, check it worked by opening
+`https://<your-backend>.vercel.app/api/movies` in a browser — it should return
+a JSON array of movies (not `[]`).
 
 ### Notes
 

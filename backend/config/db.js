@@ -21,20 +21,30 @@ const connectDB = async () => {
     );
   }
 
-  // Reuse an existing (possibly in-flight) connection
-  if (cached.conn) return cached.conn;
+  // Catch the template values from .env.example being used as-is.
+  if (/USERNAME|PASSWORD|cluster0\.xxxxx|change_this/i.test(uri)) {
+    throw new Error(
+      'MONGODB_URI still contains the placeholder values from .env.example. Set the real connection string (on Vercel: Project Settings -> Environment Variables), then redeploy.'
+    );
+  }
+
+  // Reuse a healthy connection; if the previous one dropped, start fresh.
+  if (cached.conn && mongoose.connection.readyState === 1) return cached.conn;
+  if (mongoose.connection.readyState === 0) {
+    cached.promise = null;
+    cached.conn = null;
+  }
 
   if (!cached.promise) {
     mongoose.set('strictQuery', true);
-    cached.promise = mongoose
-      .connect(uri, { serverSelectionTimeoutMS: 10000 })
-      .then((m) => m);
+    cached.promise = mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
   }
 
   try {
     cached.conn = await cached.promise;
   } catch (err) {
     cached.promise = null; // allow a retry on the next request
+    cached.conn = null;
     throw err;
   }
 
